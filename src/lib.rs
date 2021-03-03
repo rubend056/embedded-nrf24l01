@@ -43,7 +43,7 @@ pub use crate::tx::TxMode;
 /// Number of RX pipes with configurable addresses
 pub const PIPES_COUNT: usize = 6;
 /// Minimum address length
-pub const MIN_ADDR_BYTES: usize = 3;
+pub const MIN_ADDR_BYTES: usize = 2;
 /// Maximum address length
 pub const MAX_ADDR_BYTES: usize = 5;
 
