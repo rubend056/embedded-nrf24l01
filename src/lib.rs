@@ -43,7 +43,7 @@ pub use crate::tx::TxMode;
 /// Number of RX pipes with configurable addresses
 pub const PIPES_COUNT: usize = 6;
 /// Minimum address length
-pub const MIN_ADDR_BYTES: usize = 3;
+pub const MIN_ADDR_BYTES: usize = 2;
 /// Maximum address length
 pub const MAX_ADDR_BYTES: usize = 5;
 
@@ -105,7 +105,7 @@ impl<E: Debug, CE: OutputPin<Error = E>, CSN: OutputPin<Error = E>, SPI: SpiTran
     /// Reads and validates content of the `SETUP_AW` register.
     pub fn is_connected(&mut self) -> Result<bool, Error<SPIE>> {
         let (_, setup_aw) = self.read_register::<SetupAw>()?;
-        let valid = setup_aw.aw() >= 3 && setup_aw.aw() <= 5;
+        let valid = setup_aw.aw() <= 3;
         Ok(valid)
     }
 }

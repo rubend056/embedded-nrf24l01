@@ -230,6 +230,15 @@ pub trait Configuration {
         Ok(2 + register.aw())
     }
 
+    /// Set address width configuration
+    fn set_address_width(&mut self, width: u8)
+        -> Result<(), <<Self as Configuration>::Inner as Device>::Error> {
+
+        let register = SetupAw(width - 2);
+        self.device().write_register(register)?;
+        Ok(())
+    }
+
     /// Obtain interrupt pending status as `(RX_DR, TX_DR, MAX_RT)`
     /// where `RX_DR` indicates new data in the RX FIFO, `TX_DR`
     /// indicates that a packet has been sent, and `MAX_RT` indicates
