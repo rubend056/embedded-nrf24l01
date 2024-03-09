@@ -15,15 +15,15 @@ extern crate bitfield;
 
 use core::fmt;
 use core::fmt::Debug;
-use embedded_hal::blocking::spi::Transfer as SpiTransfer;
-use embedded_hal::digital::v2::OutputPin;
+use embedded_hal::spi::SpiDevice;
+use embedded_hal::digital::OutputPin;
 
 mod config;
 pub use crate::config::{Configuration, CrcMode, DataRate};
 pub mod setup;
 
 mod registers;
-use crate::registers::{Config, Register, SetupAw, Status};
+use crate::registers::{Config, Register, SetupAw, Status, Feature};
 mod command;
 use crate::command::{Command, ReadRegister, WriteRegister};
 mod payload;
@@ -56,28 +56,26 @@ pub const MAX_ADDR_BYTES: usize = 5;
 /// * [`TxMode<D>`](struct.TxMode.html)
 ///
 /// where `D: `[`Device`](trait.Device.html)
-pub struct NRF24L01<E: Debug, CE: OutputPin<Error = E>, CSN: OutputPin<Error = E>, SPI: SpiTransfer<u8>> {
+pub struct NRF24L01<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8>> {
     ce: CE,
-    csn: CSN,
-    spi: SPI,
+    pub spi: SPI,
     config: Config,
 }
 
-impl<E: Debug, CE: OutputPin<Error = E>, CSN: OutputPin<Error = E>, SPI: SpiTransfer<u8, Error = SPIE>, SPIE: Debug> fmt::Debug
-    for NRF24L01<E, CE, CSN, SPI>
+impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE: Debug> fmt::Debug
+    for NRF24L01<E, CE, SPI>
 {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "NRF24L01")
     }
 }
 
-impl<E: Debug, CE: OutputPin<Error = E>, CSN: OutputPin<Error = E>, SPI: SpiTransfer<u8, Error = SPIE>, SPIE: Debug>
-    NRF24L01<E, CE, CSN, SPI>
+impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE: Debug>
+    NRF24L01<E, CE, SPI>
 {
     /// Construct a new driver instance.
-    pub fn new(mut ce: CE, mut csn: CSN, spi: SPI) -> Result<StandbyMode<Self>, Error<SPIE>> {
+    pub fn new(mut ce: CE, spi: SPI) -> Result<StandbyMode<Self>, Error<SPIE>> {
         ce.set_low().unwrap();
-        csn.set_high().unwrap();
 
         // Reset value
         let mut config = Config(0b0000_1000);
@@ -86,7 +84,6 @@ impl<E: Debug, CE: OutputPin<Error = E>, CSN: OutputPin<Error = E>, SPI: SpiTran
         config.set_mask_max_rt(false);
         let mut device = NRF24L01 {
             ce,
-            csn,
             spi,
             config,
         };
@@ -97,7 +94,11 @@ impl<E: Debug, CE: OutputPin<Error = E>, CSN: OutputPin<Error = E>, SPI: SpiTran
             _ => {}
         }
 
-        // TODO: activate features?
+        // Enable features
+        let mut features = Feature(0);
+        features.set_en_dyn_ack(true);
+        features.set_en_dpl(true);
+        device.write_register(features)?;
 
         StandbyMode::power_up(device).map_err(|(_, e)| e)
     }
@@ -110,8 +111,8 @@ impl<E: Debug, CE: OutputPin<Error = E>, CSN: OutputPin<Error = E>, SPI: SpiTran
     }
 }
 
-impl<E: Debug, CE: OutputPin<Error = E>, CSN: OutputPin<Error = E>, SPI: SpiTransfer<u8, Error = SPIE>, SPIE: Debug> Device
-    for NRF24L01<E, CE, CSN, SPI>
+impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE: Debug> Device
+    for NRF24L01<E, CE, SPI>
 {
     type Error = Error<SPIE>;
 
@@ -135,11 +136,7 @@ impl<E: Debug, CE: OutputPin<Error = E>, CSN: OutputPin<Error = E>, SPI: SpiTran
         command.encode(buf);
 
         // SPI transaction
-        self.csn.set_low().unwrap();
-        let transfer_result = self.spi.transfer(buf).map(|_| {});
-        self.csn.set_high().unwrap();
-        // Propagate Err only after csn.set_high():
-        transfer_result?;
+        self.spi.transfer_in_place(buf)?;
 
         // Parse response
         let status = Status(buf[0]);
