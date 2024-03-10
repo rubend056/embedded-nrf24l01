@@ -70,6 +70,10 @@ impl<D: Device> TxMode<D> {
     ///
     /// This function behaves like `wait_empty()`, except that it returns whether sending was
     /// successful and that it provides an asynchronous interface.
+    ///
+    /// Automatic retransmission (set_auto_retransmit) and acks (set_auto_ack) have to be
+    /// enabled if you actually want to know if transmission was successful. 
+    /// Else the nrf24 just transmits the packet once and assumes it was received.
     pub fn poll_send(&mut self) -> nb::Result<bool, D::Error> {
         let (status, fifo_status) = self.device.read_register::<FifoStatus>()?;
         // We need to clear all the TX interrupts whenever we return Ok here so that the next call
