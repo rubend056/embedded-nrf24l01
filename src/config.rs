@@ -210,7 +210,9 @@ pub trait Configuration {
 
     /// Configure auto-acknowledgment for all RX pipes
     ///
-    /// TODO: handle switching tx/rx modes when auto-retransmit is enabled
+    /// Auto ack is handled by the nrf24 if:
+    /// 1. Auto ack feature is enabled on Feature Register
+    /// 2. Auto ack is enabled for the pipe the packet was received on
     fn set_auto_ack(
         &mut self,
         bools: &[bool; PIPES_COUNT],
