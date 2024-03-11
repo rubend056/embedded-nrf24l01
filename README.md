@@ -7,10 +7,6 @@
 * Chip operation modes lifted to the type-level
 * Lets you go straight into RX/TX with the default config
 
-### Still missing
-
-* Auto-ack support
-
 ## Reference datasheets
 
 * [nRF24L01+](https://www.sparkfun.com/datasheets/Components/SMD/nRF24L01Pluss_Preliminary_Product_Specification_v1_0.pdf)
@@ -22,54 +18,64 @@
 Get the `*-hal` crate for your micro-controller unit. Figure out how
 to get to the peripherals implementing these [embedded-hal] traits:
 
-* `embedded_hal::blocking::spi::Transfer` for the SPI peripheral
+* `embedded_hal::spi::SpiDevice` for the SPI peripheral
 
   We provide a `mod setup` with a few constants for SPI.
  
 * `embedded_hal::digital::OutputPin` for the **CE** pin
 
-* `embedded_hal::digital::OutputPin` for the **CSN** pin
-
-  (Although that one belongs to the SPI, we found it much more
-  reliable to implement in software.)
-
 ### Constructor
 
 ```rust
-let mut nrf24 = NRF24L01::new(ce, csn, spi).unwrap();
+let mut nrf24 = NRF24L01::new(ce, spi).unwrap();
 ```
 
-This will provide an instance of `Standby`. You can use `.rx()` or
-`.tx()` to transfer into a `RXMode` and `TXMode` instances. They
+This will provide an instance of `Standby` 
+and activate acknoladgements and dynamic payload length. You can use 
+`.rx()` or `.tx()` to transfer into a `RXMode` and `TXMode` instances. They
 implement `.standby()` methods to get back to `Standby` and then
 switch to the other mode.
 
 
 ### Configuration
 
-Before you start transmission, the device must be configured. Example:
+Before you start transmission, the device must be configured. Example with an **nrf24l01+**:
 
 ```rust
-nrf24.set_channel(8)?;
-nrf24.set_auto_retransmit(0, 0)?;
-nrf24.set_rf(&nrf24::DataRate::R2Mbps, 3)?;
-nrf24.set_pipes_rx_enable(&[true, false, false, false, false, false])?;
-nrf24.set_auto_ack(&[false; 6])?;
-nrf24.set_crc(&nrf24::CrcMode::Disabled)?;
-nrf24.set_tx_addr(&b"fnord"[..])?;
+nrf24.set_frequency(8).unwrap();
+nrf24.set_auto_retransmit(15, 15).unwrap();
+nrf24.set_rf(&DataRate::R2Mbps, 0).unwrap();
+nrf24
+    .set_pipes_rx_enable(&[true, false, false, false, false, false])
+    .unwrap();
+nrf24
+    .set_auto_ack(&[true, false, false, false, false, false])
+    .unwrap();
+nrf24.set_pipes_rx_lengths(&[None; 6]).unwrap();
+nrf24.set_crc(CrcMode::TwoBytes).unwrap();
+nrf24.set_rx_addr(0, &b"fnord"[..]).unwrap();
+nrf24.set_tx_addr(&b"fnord"[..]).unwrap();
+nrf24.flush_rx().unwrap();
+nrf24.flush_tx().unwrap();
 ```
 
 ### `RXMode`
 
-Use `rx.can_read()` to poll (returning the pipe number), then
-`rx.read()` to receive payload.
+Use `rx.can_read()` to poll, then `rx.read()` to receive payload.
+
+If `can_read()` always returns `true`, it's usually a power supply issue.
+You can attach a 1uF or 10uF capacitor as close to the module as possible or 
+upgrade to a better 3.3v regulator.
 
 ### `TXMode`
 
-Use `tx.send()` to enqueue a packet.
+1. Use `tx.can_send()` to prevent sending on a full queue. Note: not needed if `poll_send` or `wait_empty` was used after `send`. 
+1. Use `tx.send()` to enqueue a packet.
+1. Use `tx.wait_empty()` to synchronously flush. Or `tx.poll_send()` to asynchronously flush and get whether package transmission was successful.
 
-Use `tx.can_send()` to prevent sending on a full queue, and
-`tx.wait_empty()` to flush.
+### Note
+
+Automatic retransmission (for TX) and acknowledgement (for RX) features go hand in hand. Since setting retransmissions means TX device is expecting an ack, and auto acknowledgement means RX device will check if received packet isn't a duplicate + send an ack back. Turn them both on for `tx.poll_send()` to be reliable.
 
 
 [embedded-hal]: https://crates.io/crates/embedded-hal
