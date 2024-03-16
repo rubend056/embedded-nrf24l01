@@ -1,4 +1,5 @@
-pub use crate::payload::Payload;
+use heapless::Vec;
+
 use crate::registers::Register;
 use core::marker::PhantomData;
 
@@ -7,7 +8,7 @@ pub trait Command {
     fn encode(&self, data: &mut [u8]);
 
     type Response;
-    fn decode_response(data: &[u8]) -> Self::Response;
+    fn decode_response(data: Vec<u8,33>) -> Self::Response;
 }
 
 pub struct ReadRegister<R: Register> {
@@ -32,7 +33,7 @@ impl<R: Register> Command for ReadRegister<R> {
     }
 
     type Response = R;
-    fn decode_response(data: &[u8]) -> Self::Response {
+    fn decode_response(data: Vec<u8,33>) -> Self::Response {
         R::decode(&data[1..])
     }
 }
@@ -58,7 +59,7 @@ impl<R: Register> Command for WriteRegister<R> {
     }
 
     type Response = ();
-    fn decode_response(_: &[u8]) -> Self::Response {}
+    fn decode_response(_: Vec<u8,33>) -> Self::Response {}
 }
 
 pub struct ReadRxPayload {
@@ -80,9 +81,9 @@ impl Command for ReadRxPayload {
         buf[0] = 0b0110_0001;
     }
 
-    type Response = Payload;
-    fn decode_response(data: &[u8]) -> Self::Response {
-        Payload::new(&data[1..])
+    type Response = Vec<u8, 33>;
+    fn decode_response(data: Vec<u8,33>) -> Self::Response {
+        data
     }
 }
 
@@ -107,7 +108,7 @@ impl<'a> Command for WriteTxPayload<'a> {
     }
 
     type Response = ();
-    fn decode_response(_: &[u8]) -> Self::Response {}
+    fn decode_response(_: Vec<u8,33>) -> Self::Response {}
 }
 
 pub struct ReadRxPayloadWidth;
@@ -122,7 +123,7 @@ impl Command for ReadRxPayloadWidth {
     }
 
     type Response = u8;
-    fn decode_response(data: &[u8]) -> Self::Response {
+    fn decode_response(data: Vec<u8,33>) -> Self::Response {
         data[1]
     }
 }
@@ -139,7 +140,7 @@ impl Command for FlushRx {
     }
 
     type Response = ();
-    fn decode_response(_: &[u8]) -> Self::Response {}
+    fn decode_response(_: Vec<u8,33>) -> Self::Response {}
 }
 
 pub struct FlushTx;
@@ -154,7 +155,7 @@ impl Command for FlushTx {
     }
 
     type Response = ();
-    fn decode_response(_: &[u8]) -> Self::Response {}
+    fn decode_response(_: Vec<u8,33>) -> Self::Response {}
 }
 
 pub struct Nop;
@@ -169,5 +170,5 @@ impl Command for Nop {
     }
 
     type Response = ();
-    fn decode_response(_: &[u8]) -> Self::Response {}
+    fn decode_response(_: Vec<u8,33>) -> Self::Response {}
 }

@@ -17,6 +17,7 @@ use core::fmt;
 use core::fmt::Debug;
 use embedded_hal::spi::SpiDevice;
 use embedded_hal::digital::OutputPin;
+use heapless::Vec;
 
 mod config;
 pub use crate::config::{Configuration, CrcMode, DataRate};
@@ -26,8 +27,6 @@ mod registers;
 use crate::registers::{Config, Register, SetupAw, Status, Feature};
 mod command;
 use crate::command::{Command, ReadRegister, WriteRegister};
-mod payload;
-pub use crate::payload::Payload;
 mod error;
 pub use crate::error::Error;
 
@@ -128,19 +127,18 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
         &mut self,
         command: &C,
     ) -> Result<(Status, C::Response), Self::Error> {
-        // Allocate storage
-        let mut buf_storage = [0; 33];
-        let len = command.len();
-        let buf = &mut buf_storage[0..len];
-        // Serialize the command
-        command.encode(buf);
 
+        // Allocate storage
+        let mut v = Vec::<u8, 33>::new();
+        v.resize_default(command.len()).unwrap();
+        command.encode(&mut v);
+        
         // SPI transaction
-        self.spi.transfer_in_place(buf)?;
+        self.spi.transfer_in_place(&mut v)?;
 
         // Parse response
-        let status = Status(buf[0]);
-        let response = C::decode_response(buf);
+        let status = Status(v[0]);
+        let response = C::decode_response(v);
 
         Ok((status, response))
     }

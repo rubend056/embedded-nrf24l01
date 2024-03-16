@@ -58,7 +58,7 @@ impl<D: Device> TxMode<D> {
         Ok(!full)
     }
 
-    /// Send asynchronously
+    /// Put payload in TX FIFO and start transmission.
     pub fn send(&mut self, packet: &[u8]) -> Result<(), D::Error> {
         self.device.send_command(&WriteTxPayload::new(packet))?;
         self.device.ce_enable();

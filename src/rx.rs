@@ -1,7 +1,8 @@
+use heapless::Vec;
+
 use crate::command::{ReadRxPayload, ReadRxPayloadWidth};
 use crate::config::Configuration;
 use crate::device::Device;
-use crate::payload::Payload;
 use crate::registers::{FifoStatus, Status, CD};
 use crate::standby::StandbyMode;
 use core::fmt;
@@ -82,7 +83,7 @@ impl<D: Device> RxMode<D> {
     }
 
     /// Read the next received packet
-    pub fn read(&mut self) -> Result<Payload, D::Error> {
+    pub fn read(&mut self) -> Result<Vec<u8,33>, D::Error> {
         let (_, payload_width) = self.device.send_command(&ReadRxPayloadWidth)?;
         let (_, payload) = self
             .device
