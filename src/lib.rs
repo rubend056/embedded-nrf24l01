@@ -128,6 +128,8 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
         features.set_en_dpl(true);
         device.write_register(features)?;
 
+        device.power_up()?;
+
         Ok(device)
     }
 
@@ -138,12 +140,12 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
         Ok(valid)
     }
     /// Powers up the device
-    pub fn power_up(mut self) -> Result<(), Error<SPIE>> {
+    pub fn power_up(&mut self) -> Result<(), Error<SPIE>> {
         self.update_config(|config| config.set_pwr_up(true))
     }
 
     /// Should be a no-op
-    pub fn power_down(mut self) -> Result<(), Error<SPIE>> {
+    pub fn power_down(&mut self) -> Result<(), Error<SPIE>> {
         self.update_config(|config| config.set_pwr_up(false))
     }
     /// Sets device as primary rx, enables chip
@@ -211,7 +213,11 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
         Ok(payload)
     }
 
-    /// Receive a packet, non-blocking
+    /// Higher level receive a packet, non-blocking
+    /// 
+    /// Remember to call:
+    /// - <= rx() beforhand to enable chip and start receiving
+    /// - => ce_disable() to stop receiving
     pub fn receive(&mut self) -> nb::Result<Vec<u8, 33>, Error<SPIE>> {
         if self.can_read()?.is_some() {
             nb::Result::Ok(self.read()?)
@@ -234,13 +240,13 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
     }
 
     /// Does the TX FIFO have space?
-    pub fn can_send(&mut self) -> Result<bool, Error<SPIE>> {
+    pub fn can_write(&mut self) -> Result<bool, Error<SPIE>> {
         let full = self.is_tx_full()?;
         Ok(!full)
     }
 
     /// Put payload in TX FIFO and start transmission.
-    pub fn send(&mut self, packet: &[u8]) -> Result<(), Error<SPIE>> {
+    pub fn write(&mut self, packet: &[u8]) -> Result<(), Error<SPIE>> {
         self.send_command(&WriteTxPayload::new(packet))?;
         self.ce_enable();
         Ok(())
@@ -255,7 +261,7 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
     /// Automatic retransmission (set_auto_retransmit) and acks (set_auto_ack) have to be
     /// enabled if you actually want to know if transmission was successful. 
     /// Else the nrf24 just transmits the packet once and assumes it was received.
-    pub fn poll_send(&mut self) -> nb::Result<bool, Error<SPIE>> {
+    pub fn poll_write(&mut self) -> nb::Result<bool, Error<SPIE>> {
         let (status, fifo_status) = self.read_register::<FifoStatus>()?;
         // We need to clear all the TX interrupts whenever we return Ok here so that the next call
         // to poll_send correctly recognizes max_rt and send completion.
@@ -272,6 +278,19 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
             self.ce_enable();
             Err(nb::Error::WouldBlock)
         }
+    }
+
+    /// A higher level method, sends packet and polls it's status
+    /// 
+    /// Automatically puts radio in tx mode starts/stops transmission
+    pub fn send(&mut self, packet: &[u8]) -> Result<bool, Error<SPIE>> {
+        self.tx()?;
+        let (status, fifo_status) = self.read_register::<FifoStatus>()?;
+        if fifo_status.tx_full() {return Ok (false)};
+        self.write(packet)?;
+        let result = nb::block!(self.poll_write())?;
+
+        Ok(result)
     }
 
     fn clear_interrupts_and_ce(&mut self) -> nb::Result<(), Error<SPIE>> {
