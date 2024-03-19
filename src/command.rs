@@ -82,7 +82,9 @@ impl Command for ReadRxPayload {
     }
 
     type Response = Vec<u8, 33>;
-    fn decode_response(data: Vec<u8,33>) -> Self::Response {
+    fn decode_response(mut data: Vec<u8,33>) -> Self::Response {
+        data.rotate_left(1);
+        data.pop();
         data
     }
 }
