@@ -9,6 +9,8 @@ pub enum Error<SPIE: Debug> {
     SpiError(SPIE),
     /// Module not connected
     NotConnected,
+    /// Module not connected
+    PayloadSizeInvalid,
 }
 
 impl<SPIE: Debug> From<SPIE> for Error<SPIE> {

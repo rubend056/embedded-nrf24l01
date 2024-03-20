@@ -209,6 +209,13 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
     /// Read the next packet, blocking
     pub fn read(&mut self) -> Result<Vec<u8, 33>, Error<SPIE>> {
         let (_, payload_width) = self.send_command(&ReadRxPayloadWidth)?;
+        if payload_width > 32 {
+            return Err(Error::PayloadSizeInvalid);
+        } else if payload_width == 0 {
+            // We panic here because there's nothing else we can do if the chip has a power supply issue
+            // We can't let this silently fail, so this will stop everything even if you're not unwrapping the result
+            panic!("nrf24 had power supply issue")
+        }
         let (_, payload) = self.send_command(&ReadRxPayload::new(payload_width as usize))?;
         Ok(payload)
     }
