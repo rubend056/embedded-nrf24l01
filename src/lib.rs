@@ -223,8 +223,8 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
     /// Higher level receive a packet, non-blocking
     /// 
     /// Remember to call:
-    /// - <= rx() beforhand to enable chip and start receiving
-    /// - => ce_disable() to stop receiving
+    /// - <= `rx()` beforhand to enable chip and start receiving
+    /// - => `ce_disable()` afterwards to stop receiving
     pub fn receive(&mut self) -> nb::Result<Vec<u8, 33>, Error<SPIE>> {
         if self.can_read()?.is_some() {
             nb::Result::Ok(self.read()?)
