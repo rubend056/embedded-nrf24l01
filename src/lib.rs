@@ -30,6 +30,7 @@ pub use crate::error::Error;
 
 pub mod device;
 pub use crate::device::Device;
+mod configs;
 
 /// Number of RX pipes with configurable addresses
 pub const PIPES_COUNT: usize = 6;
