@@ -10,16 +10,16 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
   /// Configure the nrf with sane settings
 	pub fn configure(&mut self) -> Result<(), Error<SPIE>> {
 		self.set_frequency(8)?;
-		self.set_auto_retransmit(3, 7).unwrap();
-		self.set_rf(&DataRate::R250Kbps, 3).unwrap();
+		self.set_auto_retransmit(3, 7)?;
+		self.set_rf(&DataRate::R250Kbps, 3)?;
 		self.set_pipes_rx_enable(&[true, false, false, false, false, false])
-			.unwrap();
+			?;
 		self.set_auto_ack(&[true, false, false, false, false, false])
-			.unwrap();
-		self.set_pipes_rx_lengths(&[None; 6]).unwrap();
-		self.set_crc(CrcMode::TwoBytes).unwrap();
-		self.set_rx_addr(0, &b"fnord"[..]).unwrap();
-		self.set_tx_addr(&b"fnord"[..])?;
+			?;
+		self.set_pipes_rx_lengths(&[None; 6])?;
+		self.set_crc(CrcMode::TwoBytes)?;
+		// self.set_rx_addr(0, &b"fnord"[..]).unwrap();
+		// self.set_tx_addr(&b"fnord"[..])?;
 		self.flush_rx()?;
 		self.flush_tx()?;
 
