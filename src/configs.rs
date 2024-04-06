@@ -18,8 +18,8 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
 			?;
 		self.set_pipes_rx_lengths(&[None; 6])?;
 		self.set_crc(CrcMode::TwoBytes)?;
-		// self.set_rx_addr(0, &b"fnord"[..]).unwrap();
-		// self.set_tx_addr(&b"fnord"[..])?;
+		self.set_rx_addr(0, &b"fnord"[..]).unwrap();
+		self.set_tx_addr(&b"fnord"[..])?;
 		self.flush_rx()?;
 		self.flush_tx()?;
 
