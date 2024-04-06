@@ -160,6 +160,18 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
 	}
 
 	/// Is there any incoming data to read? Return the pipe number.
+	pub fn can_read_without_clearing(&mut self) -> Result<Option<u8>, Error<SPIE>> {
+		self.read_register::<FifoStatus>()
+		.map(|(status, fifo_status)| {
+			if !fifo_status.rx_empty() {
+				Some(status.rx_p_no())
+			} else {
+				None
+			}
+		})
+	}
+
+	/// Is there any incoming data to read? Return the pipe number.
 	///
 	/// This function acknowledges all interrupts even if there are more received packets, so the
 	/// caller must repeat the call until the function returns None before waiting for the next RX
@@ -168,20 +180,8 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
 		// Acknowledge all interrupts.
 		// Note that we cannot selectively acknowledge the RX interrupt here - if any TX interrupt
 		// is still active, the IRQ pin could otherwise not be used for RX interrupts.
-		let mut clear = Status(0);
-		clear.set_rx_dr(true);
-		clear.set_tx_ds(true);
-		clear.set_max_rt(true);
-		self.write_register(clear)?;
-
-		self.read_register::<FifoStatus>()
-			.map(|(status, fifo_status)| {
-				if !fifo_status.rx_empty() {
-					Some(status.rx_p_no())
-				} else {
-					None
-				}
-			})
+		self.clear_interrupts()?;
+		self.can_read_without_clearing()
 	}
 
 	/// Is an in-band RF signal detected?
@@ -243,11 +243,14 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
 		&mut self,
 		irq: &mut P,
 	) -> nb::Result<Vec<u8, 33>, Error<SPIE>> {
-		if irq.is_low().unwrap() && self.can_read()?.is_some() {
-			nb::Result::Ok(self.read()?)
-		} else {
-			nb::Result::Err(nb::Error::WouldBlock)
+		if irq.is_low().unwrap() {
+			if self.can_read()?.is_some() {
+				return nb::Result::Ok(self.read()?)
+			} else {
+				self.clear_interrupts()?;
+			}
 		}
+		nb::Result::Err(nb::Error::WouldBlock)
 	}
 
 	/// Is TX FIFO empty?
