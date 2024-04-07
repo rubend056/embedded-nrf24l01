@@ -244,7 +244,7 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
 		irq: &mut P,
 	) -> nb::Result<Vec<u8, 33>, Error<SPIE>> {
 		if irq.is_low().unwrap() {
-			if self.can_read()?.is_some() {
+			if self.can_read_without_clearing()?.is_some() {
 				return nb::Result::Ok(self.read()?)
 			} else {
 				self.clear_interrupts()?;
@@ -310,15 +310,14 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
 	///
 	/// Automatically puts radio in tx mode starts/stops transmission
 	pub fn send(&mut self, packet: &[u8]) -> Result<bool, Error<SPIE>> {
-		self.tx()?;
 		let (status, fifo_status) = self.read_register::<FifoStatus>()?;
 		if fifo_status.tx_full() {
 			return Ok(false);
 		};
-		self.write(packet)?;
-		let result = nb::block!(self.poll_write())?;
 
-		Ok(result)
+		self.tx()?;
+		self.write(packet)?;
+		Ok(nb::block!(self.poll_write())?)
 	}
 
 	fn clear_interrupts_and_ce(&mut self) -> nb::Result<(), Error<SPIE>> {
