@@ -1,3 +1,5 @@
+//! The low level device
+
 use crate::command::Command;
 use crate::registers::{Config, Register, Status};
 

@@ -90,6 +90,7 @@ impl CrcMode {
 /// where `D: `[`Device`](trait.Device.html)
 pub struct NRF24L01<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8>> {
 	ce: CE,
+	/// The underlying SpiDevice
 	pub spi: SPI,
 	config: Config,
 }
@@ -310,7 +311,7 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
 	///
 	/// Automatically puts radio in tx mode starts/stops transmission
 	pub fn send(&mut self, packet: &[u8]) -> Result<bool, Error<SPIE>> {
-		let (status, fifo_status) = self.read_register::<FifoStatus>()?;
+		let (_, fifo_status) = self.read_register::<FifoStatus>()?;
 		if fifo_status.tx_full() {
 			return Ok(false);
 		};

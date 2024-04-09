@@ -2,7 +2,7 @@ use core::fmt::Debug;
 
 use embedded_hal::{digital::OutputPin, spi::SpiDevice};
 
-use crate::{registers::Config, CrcMode, DataRate, Device, Error, NRF24L01};
+use crate::{CrcMode, DataRate, Device, Error, NRF24L01};
 
 impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE: Debug>
 	NRF24L01<E, CE, SPI>
