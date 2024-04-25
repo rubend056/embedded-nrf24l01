@@ -11,6 +11,8 @@ pub enum Error<SPIE: Debug> {
     NotConnected,
     /// Module not connected
     PayloadSizeInvalid,
+    /// The tx fifo is full
+    TxFifoFull,
 }
 
 impl<SPIE: Debug> From<SPIE> for Error<SPIE> {
