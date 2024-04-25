@@ -145,7 +145,7 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
 		self.update_config(|config| config.set_pwr_up(true))
 	}
 
-	/// Should be a no-op
+	/// Powers down the device
 	pub fn power_down(&mut self) -> Result<(), Error<SPIE>> {
 		self.update_config(|config| config.set_pwr_up(false))
 	}
