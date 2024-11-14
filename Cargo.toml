@@ -14,7 +14,3 @@ edition = "2018"
 embedded-hal = "1"
 bitfield = "0.13.2"
 nb = "0.1.2"
-# heapless = {version = "0.8", optional = true}
-
-# [features]
-# heapless = ["dep:heapless"]
