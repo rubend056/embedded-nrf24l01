@@ -16,7 +16,6 @@ use core::fmt;
 use core::fmt::Debug;
 use embedded_hal::digital::OutputPin;
 use embedded_hal::spi::SpiDevice;
-use heapless::Vec;
 use registers::{EnAa, EnRxaddr, FifoStatus, ObserveTx, RfCh, SetupRetr, TxAddr, CD};
 
 pub mod setup;
@@ -103,9 +102,7 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
 	}
 }
 
-impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE: Debug>
-	NRF24L01<E, CE, SPI>
-{
+impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE: Debug> NRF24L01<E, CE, SPI> {
 	/// Construct a new driver instance.
 	pub fn new(mut ce: CE, spi: SPI) -> Result<Self, Error<SPIE>> {
 		ce.set_low().unwrap();
@@ -162,8 +159,7 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
 
 	/// Is there any incoming data to read? Return the pipe number.
 	pub fn can_read_without_clearing(&mut self) -> Result<Option<u8>, Error<SPIE>> {
-		self.read_register::<FifoStatus>()
-		.map(|(status, fifo_status)| {
+		self.read_register::<FifoStatus>().map(|(status, fifo_status)| {
 			if !fifo_status.rx_empty() {
 				Some(status.rx_p_no())
 			} else {
@@ -197,18 +193,20 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
 
 	/// Is the RX queue empty?
 	pub fn is_rx_empty(&mut self) -> Result<bool, Error<SPIE>> {
-		self.read_register::<FifoStatus>()
+		self
+			.read_register::<FifoStatus>()
 			.map(|(_, fifo_status)| fifo_status.rx_empty())
 	}
 
 	/// Is the RX queue full?
 	pub fn is_rx_full(&mut self) -> Result<bool, Error<SPIE>> {
-		self.read_register::<FifoStatus>()
+		self
+			.read_register::<FifoStatus>()
 			.map(|(_, fifo_status)| fifo_status.rx_full())
 	}
 
 	/// Read the next packet, blocking
-	pub fn read(&mut self) -> Result<Vec<u8, 33>, Error<SPIE>> {
+	pub fn read(&mut self) -> Result<[u8; 33], Error<SPIE>> {
 		let (_, payload_width) = self.send_command(&ReadRxPayloadWidth)?;
 		if payload_width > 32 {
 			return Err(Error::PayloadSizeInvalid);
@@ -226,7 +224,7 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
 	/// Remember to call:
 	/// - <= `rx()` beforhand to enable chip and start receiving
 	/// - => `ce_disable()` afterwards to stop receiving
-	pub fn receive(&mut self) -> nb::Result<Vec<u8, 33>, Error<SPIE>> {
+	pub fn receive(&mut self) -> nb::Result<[u8; 33], Error<SPIE>> {
 		if self.can_read()?.is_some() {
 			nb::Result::Ok(self.read()?)
 		} else {
@@ -234,8 +232,8 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
 		}
 	}
 	/// Higher level receive a packet, non-blocking, using irq pin.
-    /// This is better than just receive because we aren't constantly
-    /// polling spi to check for packet.
+	/// This is better than just receive because we aren't constantly
+	/// polling spi to check for packet.
 	///
 	/// Remember to call:
 	/// - <= `rx()` beforhand to enable chip and start receiving
@@ -243,10 +241,10 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
 	pub fn receive_with_irq<P: embedded_hal::digital::InputPin>(
 		&mut self,
 		irq: &mut P,
-	) -> nb::Result<Vec<u8, 33>, Error<SPIE>> {
+	) -> nb::Result<[u8; 33], Error<SPIE>> {
 		if irq.is_low().unwrap() {
 			if self.can_read_without_clearing()?.is_some() {
-				return nb::Result::Ok(self.read()?)
+				return nb::Result::Ok(self.read()?);
 			} else {
 				self.clear_interrupts()?;
 			}
@@ -321,13 +319,13 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
 		Ok(nb::block!(self.poll_write())?)
 	}
 	/// Non blocking tranmission start
-	/// 
+	///
 	/// For checking transmission status, use `poll_write`.
 	/// Poll write will let you know when transmission is done.
-	pub fn send_start(&mut self,packet: &[u8]) -> Result<(), Error<SPIE>>{
+	pub fn send_start(&mut self, packet: &[u8]) -> Result<(), Error<SPIE>> {
 		let (_, fifo_status) = self.read_register::<FifoStatus>()?;
 		if fifo_status.tx_full() {
-			return Err (Error::TxFifoFull)
+			return Err(Error::TxFifoFull);
 		};
 
 		self.tx()?;
@@ -530,10 +528,7 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
 	/// ## `bools`
 	/// * `None`: Dynamic payload length
 	/// * `Some(len)`: Static payload length `len`
-	pub fn set_pipes_rx_lengths(
-		&mut self,
-		lengths: &[Option<u8>; PIPES_COUNT],
-	) -> Result<(), Error<SPIE>> {
+	pub fn set_pipes_rx_lengths(&mut self, lengths: &[Option<u8>; PIPES_COUNT]) -> Result<(), Error<SPIE>> {
 		// Enable dynamic payload lengths
 		let mut bools = [true; PIPES_COUNT];
 		for (i, length) in lengths.iter().enumerate() {
@@ -581,21 +576,20 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
 		self.ce.set_low().unwrap();
 	}
 
-	fn send_command<C: Command>(
-		&mut self,
-		command: &C,
-	) -> Result<(Status, C::Response), Self::Error> {
+	fn send_command<C: Command>(&mut self, command: &C) -> Result<(Status, C::Response), Self::Error> {
 		// Allocate storage
-		let mut v = Vec::<u8, 33>::new();
-		v.resize_default(command.len()).unwrap();
-		command.encode(&mut v);
+		let mut buf_storage = [0; 33];
+		let len = command.len();
+		let buf = &mut buf_storage[0..len];
+		// Serialize the command
+		command.encode(buf);
 
 		// SPI transaction
-		self.spi.transfer_in_place(&mut v)?;
+		self.spi.transfer_in_place(buf)?;
 
 		// Parse response
-		let status = Status(v[0]);
-		let response = C::decode_response(v);
+		let status = Status(buf[0]);
+		let response = C::decode_response(buf_storage);
 
 		Ok((status, response))
 	}
