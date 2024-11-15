@@ -578,9 +578,8 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
 
 	fn send_command<C: Command>(&mut self, command: &C) -> Result<(Status, C::Response), Self::Error> {
 		// Allocate storage
-		let mut buf_storage = [0; 33];
-		let len = command.len();
-		let buf = &mut buf_storage[0..len];
+		let mut buf_storage = [0u8; 33];
+		let buf = &mut buf_storage[..command.len()];
 		// Serialize the command
 		command.encode(buf);
 

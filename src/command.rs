@@ -30,7 +30,7 @@ impl<R: Register> Command for ReadRegister<R> {
 
 	type Response = R;
 	fn decode_response(data: [u8; 33]) -> Self::Response {
-		R::decode(&data[1..])
+		R::decode(&data[1..R::read_len() + 1])
 	}
 }
 
@@ -51,7 +51,7 @@ impl<R: Register> Command for WriteRegister<R> {
 
 	fn encode(&self, buf: &mut [u8]) {
 		buf[0] = 0b10_0000 | R::addr();
-		self.register.encode(&mut buf[1..]);
+		self.register.encode(&mut buf[1..self.len()]);
 	}
 
 	type Response = ();
@@ -80,6 +80,7 @@ impl Command for ReadRxPayload {
 	type Response = [u8; 33];
 	fn decode_response(mut data: [u8; 33]) -> Self::Response {
 		data.rotate_left(1);
+		data[32] = 0; // Popping end
 		data
 	}
 }
@@ -101,7 +102,7 @@ impl<'a> Command for WriteTxPayload<'a> {
 
 	fn encode(&self, buf: &mut [u8]) {
 		buf[0] = 0b1010_0000;
-		buf[1..self.data.len() + 1].copy_from_slice(self.data);
+		buf[1..self.len()].copy_from_slice(self.data);
 	}
 
 	type Response = ();
