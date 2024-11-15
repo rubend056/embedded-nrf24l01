@@ -305,6 +305,24 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
 			Err(nb::Error::WouldBlock)
 		}
 	}
+	pub fn poll_write_no_ce_enable(&mut self) -> nb::Result<bool, Error<SPIE>> {
+		let (status, fifo_status) = self.read_register::<FifoStatus>()?;
+		// We need to clear all the TX interrupts whenever we return Ok here so that the next call
+		// to poll_send correctly recognizes max_rt and send completion.
+		if status.max_rt() {
+			// If MAX_RT is set, the packet is not removed from the FIFO, so if we do not flush
+			// the FIFO, we end up in an infinite loop
+			self.send_command(&FlushTx)?;
+			self.clear_interrupts_and_ce()?;
+			Ok(false)
+		} else if fifo_status.tx_empty() {
+			self.clear_interrupts_and_ce()?;
+			Ok(true)
+		} else {
+			// self.ce_enable();
+			Err(nb::Error::WouldBlock)
+		}
+	}
 
 	/// A higher level blocking method, sends packet and polls it's status
 	///
