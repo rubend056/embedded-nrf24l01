@@ -154,6 +154,7 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
 	}
 	/// Sets device as primary tx
 	pub fn tx(&mut self) -> Result<(), Error<SPIE>> {
+		self.ce_disable();
 		self.update_config(|config| config.set_prim_rx(false))
 	}
 
@@ -323,11 +324,11 @@ impl<E: Debug, CE: OutputPin<Error = E>, SPI: SpiDevice<u8, Error = SPIE>, SPIE:
 	/// For checking transmission status, use `poll_write`.
 	/// Poll write will let you know when transmission is done.
 	pub fn send_start(&mut self, packet: &[u8]) -> Result<(), Error<SPIE>> {
+		
 		let (_, fifo_status) = self.read_register::<FifoStatus>()?;
 		if fifo_status.tx_full() {
 			return Err(Error::TxFifoFull);
 		};
-
 		self.tx()?;
 		self.write(packet)?;
 		Ok(())
